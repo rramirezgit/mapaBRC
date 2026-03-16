@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruta Patagonia - 21 al 24 Marzo 2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#map{width:100%;height:100vh}
+.day-panel{position:absolute;top:10px;right:10px;z-index:1000;background:#fff;border-radius:12px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);max-width:340px;max-height:90vh;overflow-y:auto}
+.day-panel h2{font-size:16px;margin-bottom:10px;color:#333}
+.day-btn{display:block;width:100%;padding:10px 14px;margin:4px 0;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;text-align:left;transition:all .2s}
+.day-btn:hover{transform:scale(1.02);filter:brightness(1.1)}
+.day-btn.active{box-shadow:0 0 0 3px rgba(0,0,0,.3)}
+.day-1{background:#FF6B6B;color:#fff}
+.day-2{background:#4ECDC4;color:#fff}
+.day-3{background:#FFD93D;color:#333}
+.day-4{background:#6C5CE7;color:#fff}
+.all-days{background:#333;color:#fff}
+.legend{margin-top:10px;padding-top:10px;border-top:1px solid #eee}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#666;margin:3px 0}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.stop-list{margin-top:8px;font-size:11px;color:#555;line-height:1.6}
+.weather-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-left:4px}
+.w-sun{background:#FFF3CD;color:#856404}
+.w-cloud{background:#E2E3E5;color:#383D41}
+.w-rain{background:#CCE5FF;color:#004085}
+.custom-marker{background:none;border:none}
+.marker-pin{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #fff}
+.popup-custom h3{margin:0 0 4px;font-size:14px}
+.popup-custom p{margin:2px 0;font-size:12px;color:#555}
+.popup-custom .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-top:4px}
+.loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000;background:#fff;padding:20px 30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);font-size:14px;font-weight:600;color:#333}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="loading" class="loading">Cargando rutas por carretera...</div>
+<div class="day-panel">
+<h2>Patagonia Mar 2026</h2>
+<button class="day-btn all-days active" onclick="showAll()">Ver todo el viaje</button>
+<button class="day-btn day-1" onclick="showDay(1)">Sab 21 - Llegada VLA <span class="weather-badge w-cloud">11° nublado</span></button>
+<button class="day-btn day-2" onclick="showDay(2)">Dom 22 - Lagos + Traful + VLA <span class="weather-badge w-sun">18° sol</span></button>
+<button class="day-btn day-3" onclick="showDay(3)">Lun 23 - Bariloche Circuito Chico <span class="weather-badge w-cloud">18° nublado</span></button>
+<button class="day-btn day-4" onclick="showDay(4)">Mar 24 - Bariloche Centro + Vuelo <span class="weather-badge w-rain">11° lluvia</span></button>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:#FF6B6B"></div>Dia 1 - Llegada + super</div>
+<div class="legend-item"><div class="legend-dot" style="background:#4ECDC4"></div>Dia 2 - 7 miradores + Traful + Bahia Mansa</div>
+<div class="legend-item"><div class="legend-dot" style="background:#FFD93D"></div>Dia 3 - Circuito Chico + Colonia Suiza</div>
+<div class="legend-item"><div class="legend-dot" style="background:#6C5CE7"></div>Dia 4 - Centro Civico + chocolates + vuelo</div>
+</div>
+<div id="stop-list" class="stop-list"></div>
+</div>
+
+<script>
+const map = L.map('map').setView([-40.85, -71.45], 11);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap | Rutas via OSRM',
+  maxZoom: 18
+}).addTo(map);
+
+const colors = { 1: '#FF6B6B', 2: '#4ECDC4', 3: '#E6B800', 4: '#6C5CE7' };
+
+const stops = [
+  // Dia 1 - Sab 21 - Llegada
+  { day:1, n:1, name:'Aeropuerto Bariloche', lat:-41.151, lng:-71.157, time:'17:00', type:'Logistica', note:'Retiro auto - salida real ~17:30' },
+  { day:1, n:2, name:'Airbnb Pehuenches 991', lat:-40.762, lng:-71.647, time:'18:55', type:'Traslado', note:'Check-in 5 personas' },
+  { day:1, n:3, name:'La Anonima (super)', lat:-40.7625, lng:-71.6435, time:'19:15', type:'Compras', note:'Compras esenciales' },
+
+  // Dia 2 - Dom 22 - Ruta Lagos + Traful + VLA
+  { day:2, n:1, name:'Mirador Rio Correntoso', lat:-40.745, lng:-71.665, time:'07:15', type:'Mirador', note:'Rio mas corto del mundo (200m)' },
+  { day:2, n:2, name:'Puerto Bandurrias', lat:-40.735, lng:-71.680, time:'07:35', type:'Mirador', note:'Puerto en Lago Nahuel Huapi' },
+  { day:2, n:3, name:'Mirador Lago Correntoso', lat:-40.711, lng:-71.677, time:'07:55', type:'Mirador', note:'Vista lago + cordillera chilena' },
+  { day:2, n:4, name:'Mirador Lago Espejo', lat:-40.6425, lng:-71.705, time:'08:10', type:'Mirador', note:'Acantilado sobre Lago Espejo' },
+  { day:2, n:5, name:'Balneario Lago Espejo', lat:-40.637, lng:-71.710, time:'08:25', type:'Actividad', note:'Playa cristalina. Curva cerrada' },
+  { day:2, n:6, name:'Mirador Inalco (ruta)', lat:-40.722, lng:-71.693, time:'09:00', type:'Mirador', note:'Vista desde ruta' },
+  { day:2, n:7, name:'Mirador Lago Traful', lat:-40.660, lng:-71.380, time:'09:45', type:'Mirador', note:'Mirador del Viento CERRADO. Vista ruta' },
+  { day:2, n:8, name:'Puntilla de Villa Traful', lat:-40.648, lng:-71.419, time:'10:15', type:'Actividad', note:'Aguas turquesas. 300m bajada. 1h' },
+  { day:2, n:9, name:'Villa Traful - muelle', lat:-40.658, lng:-71.390, time:'11:30', type:'Actividad', note:'Paseo costa + pueblo' },
+  { day:2, n:10, name:'Nancu Lahuen - almuerzo', lat:-40.667, lng:-71.400, time:'12:00', type:'Restaurante', note:'#1 TripAdvisor. Trucha patagonica' },
+  { day:2, n:11, name:'Bahia Mansa', lat:-40.783, lng:-71.658, time:'14:45', type:'Actividad', note:'Puerto Arrayanes. Playa volcanica' },
+  { day:2, n:12, name:'Mirador Malvinas Argentinas', lat:-40.757, lng:-71.643, time:'15:30', type:'Mirador', note:'Sendero 1.8km. Nahuel Huapi' },
+  { day:2, n:13, name:'Capilla de la Asuncion', lat:-40.760, lng:-71.640, time:'16:30', type:'Paseo', note:'1936, vitrales, araucarias' },
+  { day:2, n:14, name:'La Encantada - cena', lat:-40.764, lng:-71.644, time:'20:00', type:'Restaurante', note:'Cordero patagonico' },
+
+  // Dia 3 - Lun 23 - Bariloche Circuito Chico
+  { day:3, n:1, name:'Playa Sin Viento', lat:-41.075, lng:-71.460, time:'09:00', type:'Actividad', note:'Playa protegida - Lago Moreno' },
+  { day:3, n:2, name:'Punto Panoramico', lat:-41.060, lng:-71.490, time:'09:45', type:'Mirador', note:'Vista Lago Moreno + Andes' },
+  { day:3, n:3, name:'Puerto Panuelo', lat:-41.055, lng:-71.535, time:'10:30', type:'Actividad', note:'Muelle Llao Llao - fotos' },
+  { day:3, n:4, name:'Colonia Suiza', lat:-41.070, lng:-71.470, time:'11:15', type:'Actividad', note:'Pueblo montania. Casas de te' },
+  { day:3, n:5, name:'Cerveceria Patagonia', lat:-41.057, lng:-71.530, time:'12:30', type:'Restaurante', note:'Almuerzo: cerveza + comida. Abre 12:00' },
+  { day:3, n:6, name:'Amelie Fondue - cena', lat:-40.763, lng:-71.645, time:'20:00', type:'Restaurante', note:'Fondue queso + chocolate. RESERVAR!' },
+
+  // Dia 4 - Mar 24 - Bariloche Centro + Vuelo
+  { day:4, n:1, name:'Lo que falte / Cascada Rio Bonito', lat:-41.100, lng:-71.350, time:'11:30', type:'Actividad', note:'Completar circuito o directo a centro' },
+  { day:4, n:2, name:'Centro Civico + chocolates', lat:-41.133, lng:-71.310, time:'12:30', type:'Actividad', note:'Indoor: Rapa Nui, Mamuschka + Calle Mitre' },
+  { day:4, n:3, name:'Almuerzo centro BRC', lat:-41.133, lng:-71.310, time:'14:15', type:'Restaurante', note:'Almuerzo liviano' },
+  { day:4, n:4, name:'Aeropuerto Bariloche', lat:-41.151, lng:-71.157, time:'19:00', type:'Logistica', note:'Devolver auto. Vuelo 21:00' }
+];
+
+const routeWaypoints = {
+  1: [[-41.151,-71.157],[-40.762,-71.647],[-40.7625,-71.6435]],
+  2: [[-40.762,-71.647],[-40.745,-71.665],[-40.735,-71.680],[-40.711,-71.677],[-40.6425,-71.705],[-40.637,-71.710],[-40.722,-71.693],[-40.660,-71.380],[-40.648,-71.419],[-40.658,-71.390],[-40.667,-71.400],[-40.783,-71.658],[-40.757,-71.643],[-40.760,-71.640],[-40.764,-71.644]],
+  3: [[-40.764,-71.644],[-41.075,-71.460],[-41.060,-71.490],[-41.055,-71.535],[-41.070,-71.470],[-41.057,-71.530],[-40.763,-71.645]],
+  4: [[-40.763,-71.645],[-41.100,-71.350],[-41.133,-71.310],[-41.151,-71.157]]
+};
+
+let markers = [];
+let polylines = [];
+let cachedRoutes = {};
+
+async function getRoute(waypoints) {
+  const key = JSON.stringify(waypoints);
+  if (cachedRoutes[key]) return cachedRoutes[key];
+  const coords = waypoints.map(p => `${p[1]},${p[0]}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes && data.routes[0]) {
+      const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      cachedRoutes[key] = coords;
+      return coords;
+    }
+  } catch (e) { console.error('OSRM error:', e); }
+  cachedRoutes[key] = waypoints;
+  return waypoints;
+}
+
+async function getRouteChunked(waypoints) {
+  const maxPerRequest = 25;
+  if (waypoints.length <= maxPerRequest) return await getRoute(waypoints);
+  let allCoords = [];
+  for (let i = 0; i < waypoints.length - 1; i += maxPerRequest - 1) {
+    const chunk = waypoints.slice(i, i + maxPerRequest);
+    const coords = await getRoute(chunk);
+    if (allCoords.length > 0) coords.shift();
+    allCoords = allCoords.concat(coords);
+  }
+  return allCoords;
+}
+
+function createIcon(day, num) {
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div class="marker-pin" style="background:${colors[day]}">${num}</div>`,
+    iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
+  });
+}
+
+function getTypeColor(type) {
+  const c = {Logistica:'#6c757d',Traslado:'#17a2b8',Compras:'#fd7e14',Paseo:'#20c997',
+    Restaurante:'#e83e8c',Senderismo:'#28a745',Mirador:'#007bff',Actividad:'#ffc107'};
+  return c[type] || '#6c757d';
+}
+
+function clearMap() {
+  markers.forEach(m => map.removeLayer(m));
+  polylines.forEach(p => map.removeLayer(p));
+  markers = []; polylines = [];
+}
+
+function addMarkers(dayFilter) {
+  const filtered = dayFilter ? stops.filter(s => s.day === dayFilter) : stops;
+  filtered.forEach(s => {
+    const m = L.marker([s.lat, s.lng], { icon: createIcon(s.day, s.n) })
+      .bindPopup(`<div class="popup-custom">
+        <h3>${s.n}. ${s.name}</h3>
+        <p><b>${s.time}</b></p>
+        <p>${s.note}</p>
+        <span class="tag" style="background:${getTypeColor(s.type)}20;color:${getTypeColor(s.type)}">${s.type}</span>
+      </div>`).addTo(map);
+    markers.push(m);
+  });
+}
+
+async function showDay(day) {
+  clearMap();
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.day-${day}`).classList.add('active');
+  addMarkers(day);
+  const roadCoords = await getRouteChunked(routeWaypoints[day]);
+  const line = L.polyline(roadCoords, { color: colors[day], weight: 5, opacity: 0.85 }).addTo(map);
+  polylines.push(line);
+  map.fitBounds(line.getBounds().pad(0.12));
+  updateStopList(stops.filter(s => s.day === day), day);
+}
+
+async function showAll() {
+  clearMap();
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.all-days').classList.add('active');
+  addMarkers(null);
+  for (const day of [1,2,3,4]) {
+    const roadCoords = await getRouteChunked(routeWaypoints[day]);
+    const line = L.polyline(roadCoords, { color: colors[day], weight: 4, opacity: 0.8 }).addTo(map);
+    polylines.push(line);
+  }
+  map.fitBounds(stops.map(s => [s.lat, s.lng]), { padding: [50, 50] });
+  updateStopList(stops, 0);
+}
+
+function updateStopList(list, day) {
+  const el = document.getElementById('stop-list');
+  const dayNames = {1:'Sab 21',2:'Dom 22',3:'Lun 23',4:'Mar 24'};
+  let html = '<br>', currentDay = 0;
+  list.forEach(s => {
+    if (s.day !== currentDay) { currentDay = s.day; if (day === 0) html += `<b style="color:${colors[s.day]}">${dayNames[s.day]}</b><br>`; }
+    html += `${s.time} ${s.name}<br>`;
+  });
+  el.innerHTML = html;
+}
+
+(async function() { await showAll(); document.getElementById('loading').style.display = 'none'; })();
+</script>
+</body>
+</html>
